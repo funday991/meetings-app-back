@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const gravatar = require('gravatar');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
@@ -71,8 +70,7 @@ router.post('/login', (req, res) => {
           if(isMatch) {
             const payload = {
               id: user.id,
-              name: user.name,
-              avatar: user.avatar
+              name: user.name
             }
             jwt.sign(payload, 'secret', {
               expiresIn: 3600
