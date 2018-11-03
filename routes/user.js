@@ -36,11 +36,11 @@ router.post('/register', function(req, res) {
             if(err) console.error('There was an error', err);
             else {
               newUser.password = hash;
-              newUser
-                .save()
-                .then(user => {
-                  res.json(user)
-                });
+              newUser.save().then(() => {
+                return newUser.generateAuthToken();
+              }).then((token) => {
+                res.header('x-auth', token).json(newUser);
+              });
             }
           });
         }
@@ -68,23 +68,10 @@ router.post('/login', (req, res) => {
       bcrypt.compare(password, user.password)
         .then(isMatch => {
           if(isMatch) {
-            const payload = {
-              id: user.id,
-              name: user.name
-            }
-            jwt.sign(payload, 'secret', {
-              expiresIn: 3600
-            }, (err, token) => {
-              if(err) console.error('There is some error in token', err);
-              else {
-                res.json({
-                  success: true,
-                  token: `Bearer ${token}`
-                });
-              }
-            });
-          }
-          else {
+            return user.generateAuthToken().then((token) => {
+              res.header('x-auth', token).json(user);
+            })
+          } else {
             errors.password = 'Incorrect Password';
             return res.status(400).json(errors);
           }
@@ -92,12 +79,27 @@ router.post('/login', (req, res) => {
     });
 });
 
-router.get('/me', passport.authenticate('jwt', { session: false }), (req, res) => {
-  return res.json({
-    id: req.user.id,
-    name: req.user.name,
-    email: req.user.email
+router.get('/me', (req, res) => {
+  var token = req.header('x-auth');
+
+  User.findByToken(token).then((user) => {
+    if (!user) {
+      return Promise.reject();
+    }
+
+    res.json(user);
+  }).catch((e) => {
+    res.status(401).json();
   });
+});
+
+router.delete('/me/token', (req, res) => {
+  var token = req.header('x-auth');
+  req.user.removeToken(token).then(() => {
+    res.status(200).json();
+  }, () => {
+    res.status(400).json();
+  })
 });
 
 module.exports = router;
